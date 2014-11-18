@@ -37,6 +37,6 @@ end
 
 -- return package:
 return {
-   nca = require 'nca',
+   nca = require 'metriclearning.nca',
    nn_classification = nn_classification
 }
