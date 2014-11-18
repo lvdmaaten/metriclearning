@@ -23,7 +23,7 @@ dependencies = {
 build = {
    type = "builtin",
    modules = {
-       ['init'] = 'init.lua',
-       ['nca'] = 'nca.lua',
+       ['metriclearning.init'] = 'init.lua',
+       ['metriclearning.nca'] = 'nca.lua',
    }
 }
