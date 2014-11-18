@@ -1,7 +1,7 @@
 
 
 -- function that computes a pairwise squared Euclidean distance matrix:
-function sq_eucl_distance(Z)
+local function sq_eucl_distance(Z)
   local N = Z:size(1)
   local buff = torch.DoubleTensor(Z:size())
   torch.cmul(buff, Z, Z)
@@ -103,6 +103,7 @@ local function nearest_neighbor_error(W, X, Y)
     _,ind = min(D[n])
     if Y[n] ~= Y[ind] then
       err = err + 1
+    end
   end
   err = err / N  
   
@@ -112,7 +113,7 @@ end
 
 
 -- function that performs NCA:
-local function nca(X, Y, num_dims, lambda)
+local function nca(X, Y, opts)
   
   -- retrieve hyperparameters:
   local num_dims = opts.num_dims
@@ -125,7 +126,7 @@ local function nca(X, Y, num_dims, lambda)
   local label_counts = {}
   for n = 1,Y:nElement() do
      if label_counts[Y[n]] == nil then
-      label_counts[Y[n]] = 1
+       label_counts[Y[n]] = 1
      else
        label_counts[Y[n]] = label_counts[Y[n]] + 1
      end
