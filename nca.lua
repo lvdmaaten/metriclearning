@@ -40,7 +40,7 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   local dX = torch.DoubleTensor(X:size())
   local dZ = torch.DoubleTensor(Z:size())
   local weights = torch.DoubleTensor(N, 1)
-  for n=1:N do
+  for n = 1,N do
     
     -- compute differences in data and embedding:
     torch.add(dX, X:narrow(1, n, 1):expand(N, N), -X)     -- is the negation allocating new memory?
