@@ -1,8 +1,4 @@
 
--- dependencies:
-require 'torch'
-require 'optim'
-
 
 -- function that computes a pairwise squared Euclidean distance matrix:
 function sq_eucl_distance(Z)

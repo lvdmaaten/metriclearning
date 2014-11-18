@@ -1,7 +1,7 @@
 Metric learning
 ===============
 
-This package contains Torch7 of metric learning algorithms.
+This package contains Torch7 implementations of metric learning algorithms.
 
 Install
 -------
