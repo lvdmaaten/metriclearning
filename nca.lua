@@ -19,20 +19,31 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   
   -- compute projected data:
   local N = X:size(1)
-  local Z = torch.mm(W, X)
+  local D = X:size(2)
+  local Z = torch.mm(X, W)
   
   -- compute pairwise square Euclidean distance matrix:
   local P = sq_eucl_distance(Z)
   
   -- compute similarities:
+  local eps = 1e-9
   P:exp()
+  for n = 1,N do
+    P[n][n] = 0
+  end
   P:cdiv(P:sum(2):expand(N, N))
+  P:apply(function(x) if x < eps then return eps else return x end end)
+  
+  -- compute log-probabilities:
+  local log_P = torch.log(P)
+  for n = 1,N do
+    log_P[n][n] = 0
+  end
   
   -- compute NCA cost function:
   local C = 0
   for n = 1,N do
-    C = C - P[n]:index(2, Y_tab[Y[n]]):sum() 
-    C = C + P[n][n]       -- exclude self-similarities
+    C = C - log_P[n]:index(1, Y_tab[Y[n]]):sum()
   end
   
   -- compute gradient:
@@ -43,29 +54,30 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   for n = 1,N do
     
     -- compute differences in data and embedding:
-    torch.add(dX, X:narrow(1, n, 1):expand(N, N), -X)     -- is the negation allocating new memory?
-    torch.add(dZ, Z:narrow(1, n, 1):expand(N, N), -Z)
+    torch.add(dX, X:narrow(1, n, 1):expand(X:size()), -X)     -- is the negation allocating new memory?
+    torch.add(dZ, Z:narrow(1, n, 1):expand(Z:size()), -Z)     -- is the negation allocating new memory?
     
     -- construct "weights" for final multiplication
     torch.mul(weights, P[n], -Y_tab[Y[n]]:nElement() + 1)
     weights:indexCopy(1, Y_tab[Y[n]], weights:index(1, Y_tab[Y[n]]):add(1))
     weights[n] = weights[n] - 1
+    local weights_rep = torch.repeatTensor(weights, dZ:size(2), 1):t()   -- this is a waste of memory, torch7!
     
     -- sum final gradient:
-    torch.addmm(dC, dX:t(), dZ:cmul(weights:expand(dZ:size())))
+    dC:addmm(dX:t(), dZ:cmul(weights_rep))
   end
   
   -- return cost function and gradient:
-  return C, dC  
+  return C, dC
 end
 
 
 -- function that numerically checks gradient of NCA loss:
 local function checkgrad(W, X, Y, Y_tab, num_dims, lambda)
-
+    
     -- compute true gradient
     local _,dC = nca_grad(W, X, Y, Y_tab, num_dims, lambda)
-
+    
     -- compute numeric approximations to gradient
     local eps = 1e-7
     local dC_est = torch.DoubleTensor(dC:size())
@@ -81,6 +93,8 @@ local function checkgrad(W, X, Y, Y_tab, num_dims, lambda)
     end
 
     -- compute errors of final estimate
+    print(dC)
+    print(dC_est)
     local diff = torch.norm(dC - dC_est) / torch.norm(dC + dC_est)
     print('Error in NCA gradient: ' .. diff)
 end
@@ -120,7 +134,7 @@ local function nca(X, Y, opts)
   local lambda   = opts.lambda
   
   -- initialize solution:
-  local W = torch.randn(X:size(2), num_dims) * 0.0001
+  local W = torch.randn(X:size(2), num_dims) -- * 0.0001
   
   -- count how often each label appears:
   local label_counts = {}
@@ -139,14 +153,16 @@ local function nca(X, Y, opts)
     Y_tab[key] = torch.LongTensor(label_counts[key])
     num_classes = num_classes + 1
   end
-  local cur_counts = torch.ones(label_counts)
+  local cur_counts = torch.ones(num_classes)
   for n = 1,Y:nElement() do
     Y_tab[Y[n]][cur_counts[Y[n]]] = n
     cur_counts[Y[n]] = cur_counts[Y[n]] + 1
   end
   
   -- perform numerical check of the gradient:
+  print("Checking gradient...")
   checkgrad(W, X, Y, Y_tab, num_dims, lambda)
+  print("Done!")
   
   -- perform minimization of NCA loss:
   local state = {learningRate = 1e-3, momentum = 0.5 }
@@ -155,9 +171,6 @@ local function nca(X, Y, opts)
     return C,dC
   end
   optim.lbfgs(func, W, state)
-  
-  -- measure nearest neighbor error on training data under metric:
-  local err = nearest_neighbor_error(W, X, Y)
   
   -- return linear mapping
   return W
