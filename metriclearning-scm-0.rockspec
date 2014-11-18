@@ -10,19 +10,20 @@ description = {
    detailed = [[
 A package for metric learning.
    ]],
-   homepage = "https://github.com/clementfarabet/metriclearning",
+   homepage = "https://github.com/lvdmaaten/metriclearning",
    license = "MIT"
 }
 
 dependencies = {
    "torch >= 7.0",
    "mnist",
-   "optim"
+   "optim",
 }
 
 build = {
    type = "builtin",
    modules = {
+       ['init'] = 'init.lua',
        ['nca'] = 'nca.lua',
    }
 }
