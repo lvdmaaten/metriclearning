@@ -6,7 +6,7 @@ require 'unsup'
 local function demo_nca()
 
   -- amount of data to use for test:
-  local N = 500
+  local N = 100
 
   -- load subset of MNIST test data:
   local mnist = require 'mnist'
@@ -22,9 +22,9 @@ local function demo_nca()
    test_X:map( testset.data, function(xx, yy) return yy end)
   train_X:resize(train_X:size(1), train_X:size(2) * train_X:size(3))
    test_X:resize( test_X:size(1),  test_X:size(2) *  test_X:size(3))
-  train_Y = trainset.label
-   test_Y =  testset.label
-   
+  local train_Y = trainset.label + 1
+  local  test_Y =  testset.label + 1
+  
   -- perform PCA:
   local pca_dims = 75
   local mean = -torch.mean(train_X, 1)
@@ -38,20 +38,19 @@ local function demo_nca()
   -- compute classification error before NCA:
   local pred_Y = metriclearning.nn_classification(train_X, train_Y, test_X)
   local err = 0
-  for n = 1,predY.nElement() do
+  for n = 1,pred_Y:nElement() do
     if pred_Y[n] ~= test_Y[n] then
       err = err + 1
     end
   end
-  err = err / predY.nElement()
-  print('Nearest-neighbor error after NCA: ' .. err)
+  print(pred_Y)
+  err = err / pred_Y:nElement()
+  print('Nearest-neighbor error before NCA: ' .. err)
 
   -- run NCA:
   opts = {num_dims = 30, lambda = 0}
   local timer = torch.Timer()
-  train_Y = train_Y + 1      -- code does not like numeric label 0
   local W = metriclearning.nca(train_X, train_Y, opts)
-  train_Y = train_Y - 1
   print('Successfully performed NCA in ' .. timer:time().real .. ' seconds.')
   
   -- perform NCA mapping:
@@ -61,12 +60,12 @@ local function demo_nca()
   -- compute classification error after NCA:
   local pred_Y = metriclearning.nn_classification(train_Z, train_Y, test_Z)
   local err = 0
-  for n = 1,predY.nElement() do
+  for n = 1,pred_Y:nElement() do
     if pred_Y[n] ~= test_Y[n] then
       err = err + 1
     end
   end
-  err = err / predY.nElement()
+  err = err / pred_Y:nElement()
   print('Nearest-neighbor error after NCA: ' .. err)
 end
 
