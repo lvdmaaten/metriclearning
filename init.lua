@@ -1,11 +1,7 @@
 
-
 -- dependencies:
 require 'torch'
 require 'optim'
-
--- classes that implement algorithms:
-torch.include('metriclearning', 'nca.lua')
 
 -- function that performs nearest neighbor classification:
 local function nn_classification(train_Z, train_Y, test_Z)
@@ -14,9 +10,9 @@ local function nn_classification(train_Z, train_Y, test_Z)
   local N = train_Z:size(1)
   local M =  test_Z:size(1)
   local buff1 = torch.DoubleTensor(train_Z:size())
-  local buff2 = torch.DoubleTensor( test_X:size())
+  local buff2 = torch.DoubleTensor( test_Z:size())
   torch.cmul(buff1, train_Z, train_Z)
-  torch.cmul(buff2,  test_X,  test_Z)
+  torch.cmul(buff2,  test_Z,  test_Z)
   local sum_Z1 = -buff1:sum(2)               -- right direction to sum? or is sum(1) faster?
   local sum_Z2 = -buff2:sum(2)               -- right direction to sum? or is sum(1) faster?
   local sum_Z1_expand = sum_Z1:t():expand(M, N)

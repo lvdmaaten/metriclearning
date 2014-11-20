@@ -6,7 +6,7 @@ require 'unsup'
 local function demo_nca()
 
   -- amount of data to use for test:
-  local N = 5000
+  local N = 500
 
   -- load subset of MNIST test data:
   local mnist = require 'mnist'
@@ -34,6 +34,17 @@ local function demo_nca()
   V = V:narrow(2, 1, pca_dims)
   train_X = torch.mm(train_X, V)
    test_X = torch.mm( test_X, V)
+   
+  -- compute classification error before NCA:
+  local pred_Y = metriclearning.nn_classification(train_X, train_Y, test_X)
+  local err = 0
+  for n = 1,predY.nElement() do
+    if pred_Y[n] ~= test_Y[n] then
+      err = err + 1
+    end
+  end
+  err = err / predY.nElement()
+  print('Nearest-neighbor error after NCA: ' .. err)
 
   -- run NCA:
   opts = {num_dims = 30, lambda = 0}
@@ -43,12 +54,12 @@ local function demo_nca()
   train_Y = train_Y - 1
   print('Successfully performed NCA in ' .. timer:time().real .. ' seconds.')
   
-  -- perform classification of test data:
-  local train_Z = torch.mm(W, train_X)
-  local  test_Z = torch.mm(W,  test_X)
-  local pred_Y = nn_classification(train_Z, train_Y, test_Z)
+  -- perform NCA mapping:
+  local train_Z = torch.mm(train_X, W)
+  local  test_Z = torch.mm( test_X, W)
   
-  -- compute classification error
+  -- compute classification error after NCA:
+  local pred_Y = metriclearning.nn_classification(train_Z, train_Y, test_Z)
   local err = 0
   for n = 1,predY.nElement() do
     if pred_Y[n] ~= test_Y[n] then
