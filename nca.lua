@@ -179,9 +179,7 @@ local function nca(X, Y, opts)
     local C,dC = nca_grad(x, X, Y, Y_tab, num_dims, lambda)
     return C,dC
   end
-  print('Performing optimization with L-BFGS...')
   W = optim.lbfgs(func, W, state)
-  print('Done!')
   
   -- return linear mapping
   return W
