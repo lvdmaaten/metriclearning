@@ -22,12 +22,12 @@ Below is a simple example of the usage of the package:
 m = require 'metriclearning'
 
 -- a dataset:
-X = torch.randn(10,4) -- 100 samples, 10-dim each
+X = torch.randn(100, 10) -- 100 samples, 10-dim each
 Y = torch.squeeze(X:index(2, torch.LongTensor{1}))
 Y:apply(function(x) if x < 0 then return -1 else return 1 end end) -- corresponding labels
 
 -- metric learners:
-W = m.nca(X, Y, {num_dims=2, lambda=0})  -- perform NCA using linear mapping of rank 5 and no regularization
+W = m.nca(X, Y, {num_dims=5, lambda=0})  -- perform NCA using linear mapping of rank 5 and no regularization
 ```
 
 Demos

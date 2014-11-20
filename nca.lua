@@ -5,10 +5,10 @@ local function sq_eucl_distance(Z)
   local N = Z:size(1)
   local buff = torch.DoubleTensor(Z:size())
   torch.cmul(buff, Z, Z)
-  local sum_Z = -buff:sum(2)               -- right direction to sum? or is sum(1) faster?
+  local sum_Z = buff:sum(2)
   local sum_Z_expand = sum_Z:expand(N, N)
   local D = torch.mm(Z, Z:t())
-  D:mul(2)
+  D:mul(-2)
   D:add(sum_Z_expand):add(sum_Z_expand:t())
   return D
 end
@@ -17,16 +17,20 @@ end
 -- function that implements NCA gradient:
 local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   
-  -- compute projected data:
+  -- process input:
   local N = X:size(1)
   local D = X:size(2)
+  W:resize(D, num_dims)
+  
+  -- compute projected data:
   local Z = torch.mm(X, W)
   
   -- compute pairwise square Euclidean distance matrix:
   local P = sq_eucl_distance(Z)
   
   -- compute similarities:
-  local eps = 1e-9
+  local eps = 1e-14
+  P = -P      -- is negation allocating new memory?
   P:exp()
   for n = 1,N do
     P[n][n] = 0
@@ -45,29 +49,38 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   for n = 1,N do
     C = C - log_P[n]:index(1, Y_tab[Y[n]]):sum()
   end
+  C = C / N + lambda * torch.norm(W)
   
-  -- compute gradient:
+  -- allocate some memory:
   local dC = torch.zeros(W:size())
   local dX = torch.DoubleTensor(X:size())
   local dZ = torch.DoubleTensor(Z:size())
-  local weights = torch.DoubleTensor(N, 1)
+  local weights = torch.DoubleTensor(N)
+  
+  -- compute gradient:
   for n = 1,N do
     
     -- compute differences in data and embedding:
-    torch.add(dX, X:narrow(1, n, 1):expand(X:size()), -X)     -- is the negation allocating new memory?
-    torch.add(dZ, Z:narrow(1, n, 1):expand(Z:size()), -Z)     -- is the negation allocating new memory?
+    torch.add(dX, X:narrow(1, n, 1):expand(X:size()), -X)     -- is negation allocating new memory?
+    torch.add(dZ, Z:narrow(1, n, 1):expand(Z:size()), -Z)     -- is negation allocating new memory?
     
-    -- construct "weights" for final multiplication
-    torch.mul(weights, P[n], -Y_tab[Y[n]]:nElement() + 1)
-    weights:indexCopy(1, Y_tab[Y[n]], weights:index(1, Y_tab[Y[n]]):add(1))
+    -- compute "weights" for final multiplication
+    local inds = Y_tab[Y[n]]
+    torch.mul(weights, P[n], -(inds:nElement()) + 1)
+    weights:indexCopy(1, inds, weights:index(1, inds):add(1)) -- can this be done without memcopy?
     weights[n] = weights[n] - 1
-    local weights_rep = torch.repeatTensor(weights, dZ:size(2), 1):t()   -- this is a waste of memory, torch7!
+    weights:resize(N, 1)
     
     -- sum final gradient:
-    dC:addmm(dX:t(), dZ:cmul(weights_rep))
+    dZ:cmul(torch.expand(weights, dZ:size()))
+    local tmp = torch.mm(dX:t(), dZ)
+    dC:addmm(dX:t(), dZ)
   end
+  dC:mul(2 / N)
+  dC:add(2 * lambda, W)
   
   -- return cost function and gradient:
+  dC:resize(dC:nElement())
   return C, dC
 end
 
@@ -93,8 +106,6 @@ local function checkgrad(W, X, Y, Y_tab, num_dims, lambda)
     end
 
     -- compute errors of final estimate
-    print(dC)
-    print(dC_est)
     local diff = torch.norm(dC - dC_est) / torch.norm(dC + dC_est)
     print('Error in NCA gradient: ' .. diff)
 end
@@ -134,7 +145,7 @@ local function nca(X, Y, opts)
   local lambda   = opts.lambda
   
   -- initialize solution:
-  local W = torch.randn(X:size(2), num_dims) -- * 0.0001
+  local W = torch.randn(X:size(2), num_dims) * 0.001
   
   -- count how often each label appears:
   local label_counts = {}
@@ -160,17 +171,17 @@ local function nca(X, Y, opts)
   end
   
   -- perform numerical check of the gradient:
-  print("Checking gradient...")
-  checkgrad(W, X, Y, Y_tab, num_dims, lambda)
-  print("Done!")
+  -- checkgrad(W, X, Y, Y_tab, num_dims, lambda)
   
   -- perform minimization of NCA loss:
-  local state = {learningRate = 1e-3, momentum = 0.5 }
+  local state = {lineSearch = optim.lswolfe, maxIter = 500, maxEval = 1000, tolFun = 1e-5, tolX = 1e-5, isverbose = true}
   local func = function(x)
     local C,dC = nca_grad(x, X, Y, Y_tab, num_dims, lambda)
     return C,dC
   end
-  optim.lbfgs(func, W, state)
+  print('Performing optimization with L-BFGS...')
+  W,history = optim.lbfgs(func, W, state)
+  print('Done!')
   
   -- return linear mapping
   return W
