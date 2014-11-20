@@ -4,6 +4,8 @@
 require 'torch'
 require 'optim'
 
+-- classes that implement algorithms:
+torch.include('metriclearning', 'nca.lua')
 
 -- function that performs nearest neighbor classification:
 local function nn_classification(train_Z, train_Y, test_Z)

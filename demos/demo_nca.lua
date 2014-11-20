@@ -1,4 +1,5 @@
 metriclearning = require 'metriclearning'
+require 'unsup'
 
 
 -- function that performs demo of metric learning code on MNIST:
@@ -15,19 +16,31 @@ local function demo_nca()
   trainset.label = trainset.label:narrow(1, 1, N)
   testset.data   =  testset.data:narrow(1, 1, N)
   testset.label  =  testset.label:narrow(1, 1, N)
-  local train_X = torch.Tensor(trainset.data:size())
-  local  test_X = torch.Tensor( testset.data:size())
+  local train_X = torch.DoubleTensor(trainset.data:size())
+  local  test_X = torch.DoubleTensor( testset.data:size())
   train_X:map(trainset.data, function(xx, yy) return yy end)
    test_X:map( testset.data, function(xx, yy) return yy end)
   train_X:resize(train_X:size(1), train_X:size(2) * train_X:size(3))
    test_X:resize( test_X:size(1),  test_X:size(2) *  test_X:size(3))
   train_Y = trainset.label
    test_Y =  testset.label
+   
+  -- perform PCA:
+  local pca_dims = 75
+  local mean = -torch.mean(train_X, 1)
+  train_X:add(mean:expand(train_X:size()))
+   test_X:add(mean:expand( test_X:size()))
+  _, V = unsup.pca(train_X)  
+  V = V:narrow(2, 1, pca_dims)
+  train_X = torch.mm(train_X, V)
+   test_X = torch.mm( test_X, V)
 
   -- run NCA:
   opts = {num_dims = 30, lambda = 0}
   local timer = torch.Timer()
+  train_Y = train_Y + 1      -- code does not like numeric label 0
   local W = metriclearning.nca(train_X, train_Y, opts)
+  train_Y = train_Y - 1
   print('Successfully performed NCA in ' .. timer:time().real .. ' seconds.')
   
   -- perform classification of test data:

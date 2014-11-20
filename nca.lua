@@ -174,13 +174,13 @@ local function nca(X, Y, opts)
   -- checkgrad(W, X, Y, Y_tab, num_dims, lambda)
   
   -- perform minimization of NCA loss:
-  local state = {lineSearch = optim.lswolfe, maxIter = 500, maxEval = 1000, tolFun = 1e-5, tolX = 1e-5, isverbose = true}
+  local state = {lineSearch = optim.fista, maxIter = 500, maxEval = 1000, tolFun = 1e-5, tolX = 1e-5, verbose = true}
   local func = function(x)
     local C,dC = nca_grad(x, X, Y, Y_tab, num_dims, lambda)
     return C,dC
   end
   print('Performing optimization with L-BFGS...')
-  W,history = optim.lbfgs(func, W, state)
+  W = optim.lbfgs(func, W, state)
   print('Done!')
   
   -- return linear mapping
