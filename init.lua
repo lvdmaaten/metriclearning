@@ -24,7 +24,7 @@ local function nn_classification(train_Z, train_Y, test_Z)
   -- perform 1-nearest neighbor classification:
   test_Y = torch.LongTensor(M)
   for m = 1,M do
-    _,ind = min(D[m])
+    _,ind = torch.min(D[m])
     test_Y[m] = train_Y[ind]
   end
   
