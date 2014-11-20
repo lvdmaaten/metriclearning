@@ -22,10 +22,10 @@ local function nn_classification(train_Z, train_Y, test_Z)
   D:add(sum_Z1_expand):add(sum_Z2_expand)
   
   -- perform 1-nearest neighbor classification:
-  test_Y = torch.LongTensor(M)
+  test_Y = torch.DoubleTensor(M)
   for m = 1,M do
-    _,ind = torch.min(D[m])
-    test_Y[m] = train_Y[ind]
+    _,ind = torch.min(D[m], 1)
+    test_Y[m] = train_Y[ind[1]]
   end
   
   -- return classification
