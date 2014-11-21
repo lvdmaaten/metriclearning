@@ -3,10 +3,23 @@
 require 'torch'
 require 'optim'
 
+-- function that computes a pairwise squared Euclidean distance matrix:
+local function sq_eucl_distance(Z)
+  local N = Z:size(1)
+  local buff = torch.DoubleTensor(Z:size())
+  torch.cmul(buff, Z, Z)
+  local sum_Z = buff:sum(2)
+  local sum_Z_expand = sum_Z:expand(N, N)
+  local D = torch.mm(Z, Z:t())
+  D:mul(-2)
+  D:add(sum_Z_expand):add(sum_Z_expand:t())
+  return D
+end
+
 -- function that performs nearest neighbor classification:
 local function nn_classification(train_Z, train_Y, test_Z)
   
-  -- compute squared Euclidean distance matrix:
+  -- compute squared Euclidean distance matrix between train and test data:
   local N = train_Z:size(1)
   local M =  test_Z:size(1)
   local buff1 = torch.DoubleTensor(train_Z:size())
@@ -33,8 +46,34 @@ local function nn_classification(train_Z, train_Y, test_Z)
 end
 
 
+-- function that computes training nearest neighbor error:
+local function train_nn_error(X, Y)
+  
+  -- compute projected data:
+  local N = X:size(1)
+  
+  -- compute pairwise square Euclidean distance matrix:
+  local D = sq_eucl_distance(X)
+  
+  -- compute nearest neighbor error:
+  local err = 0
+  for n = 1,N do
+    _,ind = torch.min(D[n], 1)
+    if Y[n] ~= Y[ind] then
+      err = err + 1
+    end
+  end
+  err = err / N  
+  
+  -- return result:
+  return err
+end
+
+
 -- return package:
 return {
    nca = require 'metriclearning.nca',
-   nn_classification = nn_classification
+   sq_eucl_distance = sq_eucl_distance,
+   nn_classification = nn_classification,
+   train_nn_error = train_nn_error
 }

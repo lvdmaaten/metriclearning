@@ -1,18 +1,5 @@
 
 
--- function that computes a pairwise squared Euclidean distance matrix:
-local function sq_eucl_distance(Z)
-  local N = Z:size(1)
-  local buff = torch.DoubleTensor(Z:size())
-  torch.cmul(buff, Z, Z)
-  local sum_Z = buff:sum(2)
-  local sum_Z_expand = sum_Z:expand(N, N)
-  local D = torch.mm(Z, Z:t())
-  D:mul(-2)
-  D:add(sum_Z_expand):add(sum_Z_expand:t())
-  return D
-end
-
 
 -- function that implements NCA gradient:
 local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
@@ -108,32 +95,6 @@ local function checkgrad(W, X, Y, Y_tab, num_dims, lambda)
     -- compute errors of final estimate
     local diff = torch.norm(dC - dC_est) / torch.norm(dC + dC_est)
     print('Error in NCA gradient: ' .. diff)
-end
-
-
--- function that computes nearest neighbor error under metric:
-local function nearest_neighbor_error(W, X, Y)
-  
-  -- compute projected data:
-  local N = X:size(1)
-  local Z = torch.mm(W, X)
-  
-  -- compute pairwise square Euclidean distance matrix:
-  local D = sq_eucl_distance(Z)
-  
-  -- compute nearest neighbor error:
-  local err = 0
-  for n = 1,N do
-    D[n][n] = math.huge
-    _,ind = min(D[n])
-    if Y[n] ~= Y[ind] then
-      err = err + 1
-    end
-  end
-  err = err / N  
-  
-  -- return result:
-  return err
 end
 
 
