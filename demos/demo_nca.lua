@@ -36,7 +36,7 @@ local function demo_nca()
    test_X = torch.mm( test_X, V)
    
   -- compute classification errors before NCA:
-  local err = train_nn_error(train_X, train_Y) 
+  local err = metriclearning.train_nn_error(train_X, train_Y) 
   print('Training nearest neighbor error before NCA: ' .. err)
   local pred_Y = metriclearning.nn_classification(train_X, train_Y, test_X)
   err = 0
@@ -59,7 +59,7 @@ local function demo_nca()
   local  test_Z = torch.mm( test_X, W)
   
   -- compute classification error after NCA:
-  err = train_nn_error(train_Z, train_Y) 
+  err = metriclearning.train_nn_error(train_Z, train_Y) 
   print('Training nearest neighbor error after NCA: ' .. err)
   local pred_Y = metriclearning.nn_classification(train_Z, train_Y, test_Z)
   err = 0

@@ -1,5 +1,17 @@
 
-
+-- function that computes a pairwise squared Euclidean distance matrix:
+local function sq_eucl_distance(Z)
+  local N = Z:size(1)
+  local buff = torch.DoubleTensor(Z:size())
+  torch.cmul(buff, Z, Z)
+  local sum_Z = buff:sum(2)
+  local sum_Z_expand = sum_Z:expand(N, N)
+  local D = torch.mm(Z, Z:t())
+  D:mul(-2)
+  D:add(sum_Z_expand):add(sum_Z_expand:t())
+  return D
+end
+-- NOTE: I would rather inherit this from init.lua!
 
 -- function that implements NCA gradient:
 local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
