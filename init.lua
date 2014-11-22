@@ -3,16 +3,21 @@
 require 'torch'
 require 'optim'
 
--- function that computes a pairwise squared Euclidean distance matrix:
-local function sq_eucl_distance(Z)
-  local N = Z:size(1)
-  local buff = torch.DoubleTensor(Z:size())
-  torch.cmul(buff, Z, Z)
-  local sum_Z = buff:sum(2)
-  local sum_Z_expand = sum_Z:expand(N, N)
-  local D = torch.mm(Z, Z:t())
+-- function that computes a Mahalanobis distance matrix:
+local function mahalanobis_distance(X, metric)
+  
+  -- default to squared Euclidean metric:
+  local N = X:size(1)
+  local M = metric or torch.eye(X:size(2), X:size(2))
+  
+  -- compute Mahalanobis distance:
+  local XM = torch.mm(X, M)
+  local buff = torch.DoubleTensor(X:size())
+  torch.cmul(buff, XM, X)
+  local sum_X = buff:sum(2)
+  local D = torch.mm(X, X:t())
   D:mul(-2)
-  D:add(sum_Z_expand):add(sum_Z_expand:t())
+  D:add(sum_X:expand(N, N)):add(sum_X:expand(N, N):t())
   return D
 end
 
@@ -53,7 +58,7 @@ local function train_nn_error(X, Y)
   local N = X:size(1)
   
   -- compute pairwise square Euclidean distance matrix:
-  local D = sq_eucl_distance(X)
+  local D = mahalanobis_distance(X)
   for n = 1,N do
     D[n][n] = math.huge
   end
@@ -76,7 +81,8 @@ end
 -- return package:
 return {
    nca = require 'metriclearning.nca',
-   sq_eucl_distance = sq_eucl_distance,
+   --lmnn = require 'metriclearning.lmnn',
+   mahalanobis_distance = mahalanobis_distance,
    nn_classification = nn_classification,
    train_nn_error = train_nn_error
 }
