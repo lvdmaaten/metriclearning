@@ -49,7 +49,7 @@ local function demo_nca()
   print('Test nearest neighbor error before NCA: ' .. err)
 
   -- run NCA:
-  opts = {num_dims = 50, lambda = 0}
+  local opts = {num_dims = 50, lambda = 0}
   local timer = torch.Timer()
   local W = metriclearning.nca(train_X, train_Y, opts)
   print('Performed NCA in ' .. timer:time().real .. ' seconds.')
