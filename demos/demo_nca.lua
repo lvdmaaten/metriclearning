@@ -1,9 +1,11 @@
-metriclearning = require 'metriclearning'
-require 'unsup'
 
+require 'unsup'
 
 -- function that performs demo of metric learning code on MNIST:
 local function demo_nca()
+  
+  -- dependencies:
+  local metriclearning = require 'metriclearning'
 
   -- amount of data to use for test:
   local N = 1000

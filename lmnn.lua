@@ -1,5 +1,4 @@
 
---require('mobdebug').start()
 
 -- function that performs LMNN:
 local function lmnn(X, Y)
@@ -158,20 +157,15 @@ local function lmnn(X, Y)
     end
     
     -- print out progress:
-    iter = iter + 1
-    print('Iteration ' .. iter .. ': loss function is ' .. C .. ' and number of constraint violations is ' .. slack:gt(0):sum())
+    if iter % 10 == 0 then
+      iter = iter + 1
+      print('Iteration ' .. iter .. ': loss function is ' .. C .. ' and number of constraint violations is ' .. slack:gt(0):sum())
+    end
   end  
   
   -- return metric:
   return best_M
 end
-
--- test code:
-require 'torch'
-local X = torch.randn(100, 10) -- 100 samples, 10-dim each
-local Y = torch.squeeze(X:index(2, torch.LongTensor{1}))
-Y:apply(function(x) if x < 0 then return -1 else return 1 end end)
-local M = lmnn(X, Y)
 
 -- return LMNN function:
 return lmnn

@@ -31,8 +31,8 @@ local function nn_classification(train_Z, train_Y, test_Z)
   local buff2 = torch.DoubleTensor( test_Z:size())
   torch.cmul(buff1, train_Z, train_Z)
   torch.cmul(buff2,  test_Z,  test_Z)
-  local sum_Z1 = buff1:sum(2)               -- right direction to sum? or is sum(1) faster?
-  local sum_Z2 = buff2:sum(2)               -- right direction to sum? or is sum(1) faster?
+  local sum_Z1 = buff1:sum(2)
+  local sum_Z2 = buff2:sum(2)
   local sum_Z1_expand = sum_Z1:t():expand(M, N)
   local sum_Z2_expand = sum_Z2:expand(M, N)
   local D = torch.mm(test_Z, train_Z:t())
@@ -65,9 +65,9 @@ local function train_nn_error(X, Y)
   
   -- compute nearest neighbor error:
   local err = 0
+  local _,ind = torch.min(D, 2)
   for n = 1,N do
-    local _,ind = torch.min(D[n], 1)
-    if Y[n] ~= Y[ind] then
+    if Y[n] ~= Y[ind[n][1]] then
       err = err + 1
     end
   end
