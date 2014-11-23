@@ -3,6 +3,9 @@
 -- function that implements NCA gradient:
 local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   
+  -- dependencies:
+  local pkg = require 'metriclearning'
+  
   -- process input:
   local N = X:size(1)
   local D = X:size(2)
@@ -12,7 +15,7 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   local Z = torch.mm(X, W)
   
   -- compute pairwise square Euclidean distance matrix:
-  local P = mahalanobis_distance(Z)
+  local P = pkg.mahalanobis_distance(Z)
   
   -- compute similarities:
   local eps = 1e-14

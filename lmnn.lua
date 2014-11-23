@@ -1,31 +1,11 @@
 
--- temporary:
-require('mobdebug').start()
-require 'torch'
-
-
--- function that computes a Mahalanobis distance matrix:
-local function mahalanobis_distance(X, metric)
-  
-  -- default to squared Euclidean metric:
-  local N = X:size(1)
-  local M = metric or torch.eye(X:size(2), X:size(2))
-  
-  -- compute Mahalanobis distance:
-  local XM = torch.mm(X, M)
-  local buff = torch.DoubleTensor(X:size())
-  torch.cmul(buff, XM, X)
-  local sum_X = buff:sum(2)
-  local D = torch.mm(X, X:t())
-  D:mul(-2)
-  D:add(sum_X:expand(N, N)):add(sum_X:expand(N, N):t())
-  return D
-end
-
-
+--require('mobdebug').start()
 
 -- function that performs LMNN:
 local function lmnn(X, Y)
+  
+  -- dependencies:
+  local pkg = require 'metriclearning'
   
   -- initialize metric
   local N = X:size(1)
@@ -33,16 +13,16 @@ local function lmnn(X, Y)
   local M = torch.eye(num_dims, num_dims)
   
   -- set learning parameters:
-  local min_iter = 50;          -- minimum number of iterations
-  local max_iter = 1000;        -- maximum number of iterations
-  local eta = .1;               -- learning rate
-  local mu = .5;                -- weighting of pull and push terms
-  local tol = 1e-3;             -- tolerance for convergence
-  local best_C = math.huge;     -- best error obtained so far
-  local num_targets = 3;        -- number of target neighbors
-  local best_M = M:clone();     -- best metric found so far
+  local min_iter = 50          -- minimum number of iterations
+  local max_iter = 1000        -- maximum number of iterations
+  local eta = .05              -- learning rate
+  local mu = .5                -- weighting of pull and push terms
+  local tol = 1e-3             -- tolerance for convergence
+  local num_targets = 3        -- number of target neighbors
+  local best_C = math.huge     -- best error obtained so far
+  local best_M = M:clone()     -- best metric found so far
   
-  -- make same-label mask matrix
+  -- make same-label mask matrix:
   local same_label = torch.ByteTensor(N, N)
   for n = 1,N do
     for m = 1,N do
@@ -54,18 +34,17 @@ local function lmnn(X, Y)
     end
   end
   
-  -- find target neighbors
+  -- find target neighbors:
   local targets = torch.LongTensor(N, num_targets)
-  local D = mahalanobis_distance(X)
+  local D = pkg.mahalanobis_distance(X)
   for n = 1,N do
     D[n][n] = math.huge
   end
   for t = 1,num_targets do
     local _,ind = D:min(2)
-    local targets_t = targets:select(2, t)
-    targets_t:copy(ind)
+    targets:select(2, t):copy(ind)
     for n = 1,N do
-      D[n][targets_t[n]] = math.huge
+      D[n][ind[n][1]] = math.huge
     end
   end
   
@@ -86,12 +65,11 @@ local function lmnn(X, Y)
   local cols = torch.range(1, N):long():resize(1, N):expand(N, N)
   
   -- perform learning iterations:
-  local iter = 0
-  local C, prev_C = math.huge, math.huge
+  local iter, C, prev_C = 0, math.huge, math.huge
   while (C - prev_C > tol or iter < min_iter) and iter < max_iter do
     
     -- compute distance under current metric:
-    D = mahalanobis_distance(X, M)
+    D = pkg.mahalanobis_distance(X, M)
     
     -- compute slack variables and sum cost function:
     prev_C = C
@@ -99,20 +77,23 @@ local function lmnn(X, Y)
     old_slack:copy(slack)
     for t = 1,num_targets do
       
-      -- compute slack for current targets:
+      -- get slack for current targets:
       local targets_t = targets:select(2, t)
-      local slack_t = slack:select(3, t)
+      local   slack_t =   slack:select(3, t)
+      
+      -- compute slack for current targets:
       slack_t:copy(-D)
       for n = 1,N do
         D_targets[n] = D[n][targets_t[n]]
       end
-      slack_t:add(D_targets:resize(N, 1):expand(N, N))
-      slack_t:add(1)
+      slack_t:add(D_targets:resize(N, 1):expand(N, N)):add(1)
       slack_t[same_label] = 0
       
-      -- sum cost function:
+      -- sum cost function (distance to targets):
       C = C + (1 - mu) * D_targets:sum()
     end
+    
+    -- remove negative slack and compute final cost:
     slack[slack:lt(0)] = 0
     C = C + mu * slack:sum()
     
@@ -125,9 +106,9 @@ local function lmnn(X, Y)
     -- update the current gradient:
     for t = 1,num_targets do
       
-      -- get current targets and slacks:
-      local targets_t = targets:select(2, t)
-      local slack_t = slack:select(3, t)
+      -- get current targets and slack (old and new):
+      local   targets_t =   targets:select(2, t)
+      local     slack_t =     slack:select(3, t)
       local old_slack_t = old_slack:select(3, t)
       
       -- add new violations to the gradient:
@@ -144,17 +125,17 @@ local function lmnn(X, Y)
       -- remove resolved violations from the gradient:
       violations:map2(slack_t:gt(0), old_slack_t:gt(0), function(xx, yy, zz) if yy == 0 and zz > 0 then return 1 else return 0 end end)
       if violations:sum() > 0 then
-        diff_X1 = X:index(1, rows[violations]) -
-                  X:index(1, targets_t:index(1, rows[violations]))
-        diff_X2 = X:index(1, rows[violations]) -
-                  X:index(1, cols[violations])
+        local diff_X1 = X:index(1, rows[violations]) -
+                        X:index(1, targets_t:index(1, rows[violations]))
+        local diff_X2 = X:index(1, rows[violations]) -
+                        X:index(1, cols[violations])
         G:addmm(-mu, diff_X1:t(), diff_X1)
         G:addmm( mu, diff_X2:t(), diff_X2)
       end
     end  
     
     -- perform gradient update:
-    M:addmm(-eta / N, G, torch.ones(num_dims, num_dims))
+    M:addcmul(-eta / N, G, torch.ones(num_dims, num_dims))
     
     -- project metric back onto the PSD cone:
     local L, V = torch.eig(M, 'V')
@@ -185,10 +166,11 @@ local function lmnn(X, Y)
   return best_M
 end
 
--- testing code:
+-- test code:
+require 'torch'
 local X = torch.randn(100, 10) -- 100 samples, 10-dim each
 local Y = torch.squeeze(X:index(2, torch.LongTensor{1}))
-Y:apply(function(x) if x < 0 then return -1 else return 1 end end) -- corresponding labels
+Y:apply(function(x) if x < 0 then return -1 else return 1 end end)
 local M = lmnn(X, Y)
 
 -- return LMNN function:
