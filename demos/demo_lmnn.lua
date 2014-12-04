@@ -1,8 +1,8 @@
 
 require 'unsup'
 
--- function that performs demo of metric learning code on MNIST:
-local function demo_nca()
+-- function that performs demo of LMNN metric learning code on MNIST:
+local function demo_lmnn()
   
   -- dependencies:
   local metriclearning = require 'metriclearning'
@@ -36,10 +36,10 @@ local function demo_nca()
   V = V:narrow(2, 1, pca_dims)
   train_X = torch.mm(train_X, V)
    test_X = torch.mm( test_X, V)
-   
-  -- compute classification errors before NCA:
+  
+  -- compute classification errors before LMNN:
   local err = metriclearning.train_nn_error(train_X, train_Y) 
-  print('Training nearest neighbor error before NCA: ' .. err)
+  print('Training nearest neighbor error before LMNN: ' .. err)
   local pred_Y = metriclearning.nn_classification(train_X, train_Y, test_X)
   err = 0
   for n = 1,pred_Y:nElement() do
@@ -48,21 +48,29 @@ local function demo_nca()
     end
   end
   err = err / pred_Y:nElement()
-  print('Test nearest neighbor error before NCA: ' .. err)
+  print('Test nearest neighbor error before LMNN: ' .. err)
 
-  -- run NCA:
-  local opts = {num_dims = 50, lambda = 0}
+  -- run LMNN:
   local timer = torch.Timer()
-  local W = metriclearning.nca(train_X, train_Y, opts)
-  print('Performed NCA in ' .. timer:time().real .. ' seconds.')
+  local M = metriclearning.lmnn(train_X, train_Y)
+  print('Performed LMNN in ' .. timer:time().real .. ' seconds.')
   
-  -- perform NCA mapping:
+  -- obtain linear mapping from Mahalanobis metric:
+  local L, V = torch.eig(M, 'V')
+  local L_real = L:select(2, 1)
+  L_real[torch.lt(L_real, 0)] = 0
+  local L_diag = torch.eye(pca_dims)
+  L_diag:cmul(L_real:reshape(1, pca_dims):expand(pca_dims, pca_dims))
+  L_diag:sqrt()
+  local W = torch.mm(V, L_diag)
+  
+  -- perform LMNN mapping:
   local train_Z = torch.mm(train_X, W)
   local  test_Z = torch.mm( test_X, W)
   
-  -- compute classification error after NCA:
+  -- compute classification error after LMNN:
   err = metriclearning.train_nn_error(train_Z, train_Y) 
-  print('Training nearest neighbor error after NCA: ' .. err)
+  print('Training nearest neighbor error after LMNN: ' .. err)
   local pred_Y = metriclearning.nn_classification(train_Z, train_Y, test_Z)
   err = 0
   for n = 1,pred_Y:nElement() do
@@ -71,10 +79,10 @@ local function demo_nca()
     end
   end
   err = err / pred_Y:nElement()
-  print('Test nearest neighbor error after NCA: ' .. err)
+  print('Test nearest neighbor error after LMNN: ' .. err)
 end
 
 -- run the demo:
-demo_nca()
+demo_lmnn()
 
 

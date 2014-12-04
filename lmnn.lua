@@ -14,7 +14,7 @@ local function lmnn(X, Y)
   -- set learning parameters:
   local min_iter = 50          -- minimum number of iterations
   local max_iter = 1000        -- maximum number of iterations
-  local eta = .05              -- learning rate
+  local eta = .1               -- learning rate
   local mu = .5                -- weighting of pull and push terms
   local tol = 1e-3             -- tolerance for convergence
   local num_targets = 3        -- number of target neighbors
@@ -39,6 +39,7 @@ local function lmnn(X, Y)
   for n = 1,N do
     D[n][n] = math.huge
   end
+  D:map(same_label, function(xx, yy) if yy == 0 then return math.huge else return xx end end)
   for t = 1,num_targets do
     local _,ind = D:min(2)
     targets:select(2, t):copy(ind)
@@ -59,7 +60,7 @@ local function lmnn(X, Y)
   local slack = torch.zeros(N, N, num_targets)
   local old_slack  = torch.DoubleTensor(N, N, num_targets)
   local violations = torch.ByteTensor(N, N)
-  local D_targets = torch.DoubleTensor(N)
+  local D_targets  = torch.DoubleTensor(N)
   local rows = torch.range(1, N):long():resize(N, 1):expand(N, N)
   local cols = torch.range(1, N):long():resize(1, N):expand(N, N)
   
@@ -87,13 +88,13 @@ local function lmnn(X, Y)
       end
       slack_t:add(D_targets:resize(N, 1):expand(N, N)):add(1)
       slack_t[same_label] = 0
+      slack_t[torch.lt(slack_t, 0)] = 0
       
       -- sum cost function (distance to targets):
       C = C + (1 - mu) * D_targets:sum()
     end
     
-    -- remove negative slack and compute final cost:
-    slack[slack:lt(0)] = 0
+    -- compute final cost:
     C = C + mu * slack:sum()
     
     -- maintain best solution found so far (subgradient method):
@@ -110,8 +111,12 @@ local function lmnn(X, Y)
       local     slack_t =     slack:select(3, t)
       local old_slack_t = old_slack:select(3, t)
       
+      -- construct binary slack variables:
+      local     slack_tb = torch.gt(slack_t, 0)
+      local old_slack_tb = torch.gt(old_slack_t, 0)
+      
       -- add new violations to the gradient:
-      violations:map2(slack_t:gt(0), old_slack_t:gt(0), function(xx, yy, zz) if yy > 0 and zz == 0 then return 1 else return 0 end end)
+      violations:map2(slack_tb, old_slack_tb, function(xx, yy, zz) if yy == 1 and zz == 0 then return 1 else return 0 end end)
       if violations:sum() > 0 then
         local diff_X1 = X:index(1, rows[violations]) -
                         X:index(1, targets_t:index(1, rows[violations]))
@@ -122,7 +127,7 @@ local function lmnn(X, Y)
       end
       
       -- remove resolved violations from the gradient:
-      violations:map2(slack_t:gt(0), old_slack_t:gt(0), function(xx, yy, zz) if yy == 0 and zz > 0 then return 1 else return 0 end end)
+      violations:map2(slack_tb, old_slack_tb, function(xx, yy, zz) if yy == 0 and zz == 1 then return 1 else return 0 end end)
       if violations:sum() > 0 then
         local diff_X1 = X:index(1, rows[violations]) -
                         X:index(1, targets_t:index(1, rows[violations]))
@@ -139,15 +144,10 @@ local function lmnn(X, Y)
     -- project metric back onto the PSD cone:
     local L, V = torch.eig(M, 'V')
     local L_real = L:select(2, 1) 
-    local pos_eig_ind = (torch.range(1, num_dims)[L_real:gt(0)]):long()    
-    if pos_eig_ind:nElement() == 0 then
-      error('All eigenvalues just became zero! Aborting...')
-    end
-    local L_ind = L_real:index(1, pos_eig_ind)
-    local V_ind = V:index(1, pos_eig_ind)
-    L_ind:sqrt()
-    V_ind:cmul(L_ind:reshape(pos_eig_ind:nElement(), 1):expand(pos_eig_ind:nElement(), num_dims))
-    M:copy(torch.mm(V_ind:t(), V_ind))
+    L_real[torch.lt(L_real, 0)] = 0
+    local L_diag = torch.eye(num_dims)  -- should pre-allocate
+    L_diag:cmul(L_real:reshape(1, num_dims):expand(num_dims, num_dims))
+    M:copy(torch.mm(torch.mm(V, L_diag), V:t()))
     
     -- update learning rate:
     if prev_C > C then
@@ -157,9 +157,9 @@ local function lmnn(X, Y)
     end
     
     -- print out progress:
-    if iter % 10 == 0 then
-      iter = iter + 1
-      print('Iteration ' .. iter .. ': loss function is ' .. C .. ' and number of constraint violations is ' .. slack:gt(0):sum())
+    iter = iter + 1
+    if iter == 1 or iter % 10 == 0 then
+      print('Iteration ' .. iter .. ': loss function is ' .. C / N .. ' and number of constraint violations is ' .. slack:gt(0):sum())
     end
   end  
   

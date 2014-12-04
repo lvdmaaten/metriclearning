@@ -15,7 +15,7 @@ local function mahalanobis_distance(X, metric)
   local buff = torch.DoubleTensor(X:size())
   torch.cmul(buff, XM, X)
   local sum_X = buff:sum(2)
-  local D = torch.mm(X, X:t())
+  local D = torch.mm(XM, X:t())
   D:mul(-2)
   D:add(sum_X:expand(N, N)):add(sum_X:expand(N, N):t())
   return D

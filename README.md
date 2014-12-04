@@ -1,7 +1,7 @@
 Metric learning
 ===============
 
-This package contains Torch7 implementations of metric learning algorithms.
+This package contains Torch7 implementations of metric learning algorithms. It is still under development and not yet bug-free.
 
 Install
 -------
@@ -38,4 +38,5 @@ The following demos are currently provided:
 ```sh
 cd demos
 th demo_nca.lua
+th demo_lmnn.lua
 ```
