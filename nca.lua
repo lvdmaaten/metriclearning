@@ -37,7 +37,7 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   for n = 1,N do
     C = C - log_P[n]:index(1, Y_tab[Y[n]]):sum()
   end
-  C = C / N + lambda * torch.norm(W)
+  C = C / N + lambda * torch.norm(W) * torch.norm(W)
   
   -- allocate some memory:
   local dC = torch.zeros(W:size())
