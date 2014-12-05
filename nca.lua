@@ -15,17 +15,16 @@ local function nca_grad(W, X, Y, Y_tab, num_dims, lambda)
   local Z = torch.mm(X, W)
   
   -- compute pairwise square Euclidean distance matrix:
-  local P = pkg.mahalanobis_distance(Z)
+  local P = -pkg.mahalanobis_distance(Z)
   
   -- compute similarities:
-  local eps = 1e-14
-  P = -P      -- is negation allocating new memory?
   P:exp()
   for n = 1,N do
     P[n][n] = 0
   end
-  P:cdiv(P:sum(2):expand(N, N))
+  local eps = 1e-19 * N
   P:apply(function(x) if x < eps then return eps else return x end end)
+  P:cdiv(P:sum(2):expand(N, N))
   
   -- compute log-probabilities:
   local log_P = torch.log(P)
@@ -79,6 +78,7 @@ local function checkgrad(W, X, Y, Y_tab, num_dims, lambda)
     
     -- compute true gradient
     local _,dC = nca_grad(W, X, Y, Y_tab, num_dims, lambda)
+    dC:resize(W:size())
     
     -- compute numeric approximations to gradient
     local eps = 1e-7
@@ -108,7 +108,12 @@ local function nca(X, Y, opts)
   local lambda   = opts.lambda
   
   -- initialize solution:
-  local W = torch.randn(X:size(2), num_dims) * 0.001
+  local W
+  if X:size(2) == num_dims then
+    W = torch.eye(num_dims)
+  else
+    W = torch.randn(X:size(2), num_dims) * 0.1
+  end
   
   -- count how often each label appears:
   local label_counts = {}
@@ -137,7 +142,7 @@ local function nca(X, Y, opts)
   -- checkgrad(W, X, Y, Y_tab, num_dims, lambda)
   
   -- perform minimization of NCA loss:
-  local state = {lineSearch = optim.fista, maxIter = 500, maxEval = 1000, tolFun = 1e-5, tolX = 1e-5, verbose = true}
+  local state = {lineSearch = optim.fista, maxIter = 250, maxEval = 500, tolFun = 1e-4, tolX = 1e-4, verbose = true}
   local func = function(x)
     local C,dC = nca_grad(x, X, Y, Y_tab, num_dims, lambda)
     return C,dC

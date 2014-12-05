@@ -139,15 +139,15 @@ local function lmnn(X, Y)
     end  
     
     -- perform gradient update:
-    M:addcmul(-eta / N, G, torch.ones(num_dims, num_dims))
+    M:add(-eta / N, G)
     
     -- project metric back onto the PSD cone:
     local L, V = torch.eig(M, 'V')
     local L_real = L:select(2, 1) 
     L_real[torch.lt(L_real, 0)] = 0
-    local L_diag = torch.eye(num_dims)  -- should pre-allocate
-    L_diag:cmul(L_real:reshape(1, num_dims):expand(num_dims, num_dims))
-    M:copy(torch.mm(torch.mm(V, L_diag), V:t()))
+    L_real:sqrt()
+    V:cmul(L_real:reshape(1, num_dims):expand(num_dims, num_dims))
+    torch.mm(M, V, V:t())
     
     -- update learning rate:
     if prev_C > C then

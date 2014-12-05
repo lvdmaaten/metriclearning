@@ -56,13 +56,11 @@ local function demo_lmnn()
   print('Performed LMNN in ' .. timer:time().real .. ' seconds.')
   
   -- obtain linear mapping from Mahalanobis metric:
-  local L, V = torch.eig(M, 'V')
+  local L, W = torch.eig(M, 'V')
   local L_real = L:select(2, 1)
-  L_real[torch.lt(L_real, 0)] = 0
-  local L_diag = torch.eye(pca_dims)
-  L_diag:cmul(L_real:reshape(1, pca_dims):expand(pca_dims, pca_dims))
-  L_diag:sqrt()
-  local W = torch.mm(V, L_diag)
+  L_real[torch.lt(L_real, 0)] = 0  
+  L_real:sqrt()
+  W:cmul(L_real:reshape(1, pca_dims):expand(pca_dims, pca_dims))  
   
   -- perform LMNN mapping:
   local train_Z = torch.mm(train_X, W)
