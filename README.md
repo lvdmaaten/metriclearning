@@ -26,8 +26,8 @@ X = torch.randn(100, 10) -- 100 samples, 10-dim each
 Y = torch.squeeze(X:index(2, torch.LongTensor{1}))
 Y:apply(function(x) if x < 0 then return -1 else return 1 end end) -- corresponding labels
 
--- metric learning:
-W = m.nca(X, Y, {num_dims=5, lambda=0})  -- perform NCA using linear mapping of rank 5 and no regularization
+-- learn Mahalanobis metric using LMNN:
+M = m.lmnn(X, Y)
 ```
 
 Demos
