@@ -80,8 +80,9 @@ end
 
 -- return package:
 return {
-  nca  = require 'metriclearning.nca',
-  lmnn = require 'metriclearning.lmnn',
+  nca   = require 'metriclearning.nca',
+  lmnn  = require 'metriclearning.lmnn',
+  itml  = require 'metriclearning.itml',      --drlim = require 'metriclearning.drlim',
   mahalanobis_distance = mahalanobis_distance,
   nn_classification = nn_classification,
   train_nn_error = train_nn_error

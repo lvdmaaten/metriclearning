@@ -25,6 +25,7 @@ build = {
    modules = {
        ['metriclearning.init'] = 'init.lua',
        ['metriclearning.nca']  = 'nca.lua',
-       ['metriclearning.lmnn'] = 'lmnn.lua'
+       ['metriclearning.lmnn'] = 'lmnn.lua',
+       ['metriclearning.itml'] = 'itml.lua'
    }
 }

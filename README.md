@@ -39,4 +39,5 @@ The following demos are currently provided:
 cd demos
 th demo_nca.lua
 th demo_lmnn.lua
+th demo_itml.lua
 ```
