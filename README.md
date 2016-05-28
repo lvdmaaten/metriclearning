@@ -23,8 +23,8 @@ m = require 'metriclearning'
 
 -- a dataset:
 X = torch.randn(100, 10) -- 100 samples, 10-dim each
-Y = torch.squeeze(X:index(2, torch.LongTensor{1}))
-Y:apply(function(x) if x < 0 then return -1 else return 1 end end) -- corresponding labels
+Y = X:select(2, 1):gt(0):long()
+Y[Y:eq(0)] = -1  -- corresponding labels
 
 -- learn Mahalanobis metric using LMNN:
 M = m.lmnn(X, Y)
