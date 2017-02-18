@@ -35,6 +35,8 @@ Demos
 
 The following demos are currently provided:
 
+(The demos require the ```unsup``` package: ```luarocks install unsup```)
+
 ```sh
 cd demos
 th demo_nca.lua
